@@ -1276,6 +1276,29 @@
             function applyFilter(filterType) {
                 if (!allCalendarData) return;
                 
+                console.log("Applying filter:", filterType);
+                console.log("Total events before filtering:", allCalendarData.length - 1);
+                
+                // Count event types in original data
+                let restDayCount = 0;
+                let annualLeaveCount = 0;
+                let studDayCount = 0;
+                let workShiftCount = 0;
+                
+                for (let i = 1; i < allCalendarData.length; i++) {
+                    const subject = allCalendarData[i][0];
+                    if (subject === "Rest Day") restDayCount++;
+                    else if (subject === "ANNUAL LEAVE") annualLeaveCount++;
+                    else if (subject === "STUD Day") studDayCount++;
+                    else workShiftCount++;
+                }
+                
+                console.log("Event counts in original data:");
+                console.log("- Rest Days:", restDayCount);
+                console.log("- Annual Leave:", annualLeaveCount);
+                console.log("- STUD Days:", studDayCount);
+                console.log("- Work Shifts:", workShiftCount);
+                
                 filteredData = [];
                 filteredData.push(allCalendarData[0]); // Keep header row
                 
@@ -1305,6 +1328,28 @@
                         }
                         break;
                 }
+                
+                console.log("Total events after filtering:", filteredData.length - 1);
+                
+                // Count event types in filtered data
+                restDayCount = 0;
+                annualLeaveCount = 0;
+                studDayCount = 0;
+                workShiftCount = 0;
+                
+                for (let i = 1; i < filteredData.length; i++) {
+                    const subject = filteredData[i][0];
+                    if (subject === "Rest Day") restDayCount++;
+                    else if (subject === "ANNUAL LEAVE") annualLeaveCount++;
+                    else if (subject === "STUD Day") studDayCount++;
+                    else workShiftCount++;
+                }
+                
+                console.log("Event counts in filtered data:");
+                console.log("- Rest Days:", restDayCount);
+                console.log("- Annual Leave:", annualLeaveCount);
+                console.log("- STUD Days:", studDayCount);
+                console.log("- Work Shifts:", workShiftCount);
                 
                 // Update the preview
                 createPreview();
