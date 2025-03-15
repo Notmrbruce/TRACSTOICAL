@@ -1107,6 +1107,9 @@
                                     throw new Error("Could not find header row in CSV. Please ensure this is a valid TRACS Enterprise export file.");
                                 }
                                 
+                                console.log("Found header row at index:", headerRow);
+                                console.log("Header row content:", rawData[headerRow]);
+                                
                                 // Step 2: Extract data rows (everything after the header)
                                 const dataRows = rawData.slice(headerRow + 1);
                                 
@@ -1161,6 +1164,7 @@
                                                 // Store the end time for the next day
                                                 // This will be used to adjust the start time of any rest day on the next day
                                                 overnightShiftEndTimes[nextDate] = endTime;
+                                                console.log(`Detected overnight shift ending at ${endTime} on ${nextDate}`);
                                             }
                                         } catch (error) {
                                             console.error('Error processing time:', error, row);
@@ -1189,6 +1193,9 @@
                                     
                                     // Check if this date has a previous overnight shift ending on it
                                     const previousShiftEndTime = overnightShiftEndTimes[formattedDate];
+                                    if (previousShiftEndTime) {
+                                        console.log(`Found previousShiftEndTime for ${formattedDate}: ${previousShiftEndTime}`);
+                                    }
                                     
                                     // ---- Handle Rest Days ----
                                     if (!startTime || startTime === "RD") {
@@ -1217,7 +1224,7 @@
                                         
                                         // Create rest day event
                                         icalData.push([
-                                            "Rest Day", // Subject
+                                            "RD", // Subject
                                             formattedDate, // Start Date
                                             restDayStartTime, // Start Time
                                             formattedDate, // End Date
@@ -1254,7 +1261,7 @@
                                         
                                         // Create annual leave event
                                         icalData.push([
-                                            "ANNUAL LEAVE", // Subject
+                                            "A/L", // Subject
                                             formattedDate, // Start Date
                                             alStartTime, // Start Time
                                             formattedDate, // End Date
@@ -1428,7 +1435,7 @@
                         // Only include work shifts and STUD days
                         for (let i = 1; i < allCalendarData.length; i++) {
                             const row = allCalendarData[i];
-                            if (row[0] !== "Rest Day" && row[0] !== "ANNUAL LEAVE") {
+                            if (row[0] !== "RD" && row[0] !== "A/L") {
                                 filteredData.push(row);
                             }
                         }
@@ -1438,7 +1445,7 @@
                         // Only include rest days and annual leave
                         for (let i = 1; i < allCalendarData.length; i++) {
                             const row = allCalendarData[i];
-                            if (row[0] === "Rest Day" || row[0] === "ANNUAL LEAVE") {
+                            if (row[0] === "RD" || row[0] === "A/L") {
                                 filteredData.push(row);
                             }
                         }
@@ -1513,9 +1520,9 @@
                     
                     // Determine event type for color-coding
                     let eventType = '';
-                    if (filteredData[i][0] === 'Rest Day') {
+                    if (filteredData[i][0] === 'RD') {
                         eventType = 'rest';
-                    } else if (filteredData[i][0] === 'ANNUAL LEAVE') {
+                    } else if (filteredData[i][0] === 'A/L') {
                         eventType = 'leave';
                     } else if (filteredData[i][0] === 'STUD Day') {
                         eventType = 'study';
