@@ -1,0 +1,1581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRACS to iCal Converter</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --primary-color: #0a84ff;
+            --primary-light: #60b4ff;
+            --success-color: #32d74b;
+            --error-color: #ff453a;
+            --text-color: #f5f5f7;
+            --text-secondary: #a1a1a6;
+            --border-color: #2c2c2e;
+            --accent-color: #5e5ce6;
+            --accent-light: #7a78ff;
+            --card-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+            --hover-color: #2c2c2e;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        
+        .container {
+            max-width: 900px;
+            width: 100%;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        h1 {
+            font-size: 2.4rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            background: linear-gradient(45deg, var(--primary-color), var(--accent-color));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .tips-container {
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .tips-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .tips-header i {
+            font-size: 1.3rem;
+            color: #ff9f0a;
+            margin-right: 0.75rem;
+        }
+        
+        .tips-header h3 {
+            font-size: 1.2rem;
+            font-weight: 500;
+        }
+        
+        .tips {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .tip {
+            display: flex;
+            align-items: flex-start;
+            padding: 1rem;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            transition: transform 0.2s ease, background-color 0.2s ease;
+        }
+        
+        .tip:hover {
+            background-color: rgba(255, 255, 255, 0.08);
+            transform: translateY(-2px);
+        }
+        
+        .tip-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1rem;
+            flex-shrink: 0;
+        }
+        
+        .tip-icon i {
+            font-size: 1rem;
+        }
+        
+        .tip:nth-child(1) .tip-icon i {
+            color: #5e5ce6; /* Purple */
+        }
+        
+        .tip:nth-child(2) .tip-icon i {
+            color: #30d158; /* Green */
+        }
+        
+        .tip:nth-child(3) .tip-icon i {
+            color: #ff9f0a; /* Orange */
+        }
+        
+        .tip-content p {
+            margin: 0;
+            color: var(--text-color);
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        
+        .instruction-card {
+            margin-bottom: 2rem;
+        }
+        
+        .steps-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        
+        .step-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+        
+        .step-number {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, var(--primary-color), var(--accent-color));
+            color: white;
+            font-weight: 600;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+        
+        .step-content {
+            flex: 1;
+        }
+        
+        .step-content h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-color);
+        }
+        
+        .step-content p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .step-content p:last-child {
+            margin-bottom: 0;
+        }
+        
+        .step-content strong {
+            color: var(--primary-light);
+            font-weight: 500;
+        }
+        
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--card-shadow);
+            overflow: hidden;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+        }
+        
+        .card h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            color: var(--primary-light);
+        }
+        
+        .card h2 i {
+            margin-right: 0.75rem;
+            font-size: 1.4rem;
+        }
+        
+        .upload-area {
+            border: 2px dashed var(--border-color);
+            border-radius: 12px;
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background-color: rgba(255, 255, 255, 0.05);
+            margin-bottom: 1.5rem;
+        }
+        
+        .upload-area:hover, .upload-area.highlight {
+            border-color: var(--primary-color);
+            background-color: rgba(10, 132, 255, 0.1);
+        }
+        
+        .upload-icon {
+            font-size: 3rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+        
+        .upload-text {
+            margin-bottom: 1rem;
+        }
+        
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(10, 132, 255, 0.4);
+        }
+        
+        .btn:hover {
+            background-color: var(--primary-light);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(10, 132, 255, 0.5);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn i {
+            margin-right: 0.5rem;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .progress-container {
+            margin: 2rem 0;
+        }
+        
+        .progress-text {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+        
+        .progress-bar {
+            height: 6px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .progress-bar-inner {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--primary-light));
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .option-group {
+            margin: 1.5rem 0;
+        }
+        
+        .option-group h3 {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }
+        
+        .radio-options {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        .radio-label {
+            display: flex;
+            align-items: center;
+            padding: 0.8rem 1.2rem;
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .radio-label:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-color: var(--primary-color);
+        }
+        
+        .radio-label input {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .radio-checkmark {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 0.75rem;
+            transition: all 0.2s ease;
+        }
+        
+        .radio-checkmark::after {
+            content: '';
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            opacity: 0;
+            transition: all 0.2s ease;
+        }
+        
+        .radio-label input:checked + .radio-content .radio-checkmark {
+            border-color: var(--primary-color);
+        }
+        
+        .radio-label input:checked + .radio-content .radio-checkmark::after {
+            opacity: 1;
+        }
+        
+        .radio-content {
+            display: flex;
+            align-items: center;
+        }
+        
+        .radio-text {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .radio-title {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+        
+        .radio-desc {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        
+        .status {
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin: 1.5rem 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .status.success {
+            background-color: rgba(50, 215, 75, 0.1);
+            border: 1px solid rgba(50, 215, 75, 0.3);
+        }
+        
+        .status.error {
+            background-color: rgba(255, 69, 58, 0.1);
+            border: 1px solid rgba(255, 69, 58, 0.3);
+        }
+        
+        .status-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .status.success .status-icon {
+            color: var(--success-color);
+        }
+        
+        .status.error .status-icon {
+            color: var(--error-color);
+        }
+        
+        .status-message {
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+        
+        .import-tip {
+            display: flex;
+            align-items: flex-start;
+            background-color: rgba(255, 69, 58, 0.1);
+            border-left: 3px solid #ff453a;
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+        }
+        
+        .import-tip i {
+            color: #ff453a;
+            font-size: 1.2rem;
+            margin-right: 0.75rem;
+            margin-top: 0.1rem;
+        }
+        
+        .import-tip-text {
+            font-size: 0.95rem;
+            line-height: 1.5;
+            color: var(--text-color);
+        }
+        
+        .import-tip-text strong {
+            color: #ff453a;
+            font-weight: 500;
+        }
+        
+        .download-btn {
+            background: linear-gradient(45deg, var(--success-color), #3ed157);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.8rem;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(50, 215, 75, 0.4);
+        }
+        
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(50, 215, 75, 0.5);
+        }
+        
+        .download-btn i {
+            margin-right: 0.5rem;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: auto;
+            padding: 2rem 0 1rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .preview-table th {
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-weight: 500;
+            color: var(--primary-light);
+        }
+        
+        .preview-table td {
+            padding: 0.75rem 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .preview-table tr:hover td {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        
+        .tag {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+        
+        .tag-work {
+            background-color: rgba(10, 132, 255, 0.2);
+            color: var(--primary-light);
+        }
+        
+        .tag-rest {
+            background-color: rgba(94, 92, 230, 0.2);
+            color: var(--accent-light);
+        }
+        
+        .tag-study {
+            background-color: rgba(255, 159, 10, 0.2);
+            color: #ff9f0a;
+        }
+        
+        .tag-leave {
+            background-color: rgba(255, 69, 58, 0.2);
+            color: #ff453a;
+        }
+        
+        #preview-container {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 1.5rem;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            background-color: rgba(0, 0, 0, 0.2);
+        }
+        
+        #preview-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        #preview-container::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+        
+        #preview-container::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
+        
+        .preview-info {
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 200px;
+        }
+        
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(10, 132, 255, 0.2);
+            border-top: 3px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .generate-btn {
+            background: linear-gradient(45deg, var(--primary-color), var(--accent-color));
+            margin-top: 1.5rem;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            width: 100%;
+            max-width: 300px;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>TRACS to iCal Converter</h1>
+            <p class="subtitle">Transform your work schedule into calendar events with one click</p>
+        </header>
+        
+        <div class="card instruction-card">
+            <h2><i class="fas fa-info-circle"></i>How It Works</h2>
+            <div class="steps-container">
+                <div class="step-item">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>Export from TRACS</h3>
+                        <p>Navigate to your work plan on TRACS and set the dates you'd like to convert</p>
+                        <p>Scroll to the bottom and click <strong>"Export to CSV"</strong> in the bottom left corner</p>
+                    </div>
+                </div>
+                <div class="step-item">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>Upload Your File</h3>
+                        <p>Drag and drop the CSV file here or use the Browse button</p>
+                    </div>
+                </div>
+                <div class="step-item">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>Choose Calendar Options</h3>
+                        <p>Select what to include in your calendar (all events, work only, or days off only)</p>
+                    </div>
+                </div>
+                <div class="step-item">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h3>Download & Import</h3>
+                        <p>Generate your iCal file and import it into your preferred calendar app</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tips-container">
+                <div class="tips-header">
+                    <i class="fas fa-lightbulb"></i>
+                    <h3>Pro Tips</h3>
+                </div>
+                <div class="tips">
+                    <div class="tip">
+                        <div class="tip-icon"><i class="fas fa-palette"></i></div>
+                        <div class="tip-content">
+                            <p>Create separate calendars for work days and days off to set different colors for easy visual scanning</p>
+                        </div>
+                    </div>
+                    <div class="tip">
+                        <div class="tip-icon"><i class="fas fa-share-alt"></i></div>
+                        <div class="tip-content">
+                            <p>When sharing your schedule with family or friends, consider sharing only your days off for privacy</p>
+                        </div>
+                    </div>
+                    <div class="tip">
+                        <div class="tip-icon"><i class="fas fa-bell"></i></div>
+                        <div class="tip-content">
+                            <p>Set up customized notifications for each calendar to get reminders at the right time</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card" id="upload-card">
+            <h2><i class="fas fa-cloud-upload-alt"></i>Upload Schedule</h2>
+            <div id="upload-area" class="upload-area">
+                <div class="upload-icon">
+                    <i class="fas fa-file-csv"></i>
+                </div>
+                <p class="upload-text">Drag & drop your TRACS Enterprise CSV file here</p>
+                <p>- or -</p>
+                <input type="file" id="file-input" accept=".csv" class="hidden">
+                <button id="browse-button" class="btn">
+                    <i class="fas fa-folder-open"></i>Browse Files
+                </button>
+            </div>
+        </div>
+        
+        <div class="card hidden" id="options-card">
+            <h2><i class="fas fa-sliders-h"></i>Calendar Options</h2>
+            
+            <div class="option-group">
+                <h3>What would you like to include in your calendar?</h3>
+                <div class="radio-options">
+                    <label class="radio-label">
+                        <input type="radio" name="calendar-type" value="all" checked>
+                        <div class="radio-content">
+                            <div class="radio-checkmark"></div>
+                            <div class="radio-text">
+                                <span class="radio-title">All Events</span>
+                                <span class="radio-desc">Include all shifts, rest days, and leave</span>
+                            </div>
+                        </div>
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="calendar-type" value="workdays">
+                        <div class="radio-content">
+                            <div class="radio-checkmark"></div>
+                            <div class="radio-text">
+                                <span class="radio-title">Work Days Only</span>
+                                <span class="radio-desc">Include shifts and STUD days</span>
+                            </div>
+                        </div>
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="calendar-type" value="daysoff">
+                        <div class="radio-content">
+                            <div class="radio-checkmark"></div>
+                            <div class="radio-text">
+                                <span class="radio-title">Days Off Only</span>
+                                <span class="radio-desc">Include rest days and annual leave</span>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            
+            <div id="preview-container" class="hidden"></div>
+            
+            <button id="generate-btn" class="btn generate-btn">
+                <i class="fas fa-calendar-alt"></i>Generate iCal File
+            </button>
+        </div>
+        
+        <div id="progress-container" class="card hidden">
+            <div class="loading">
+                <div class="loading-spinner"></div>
+                <p id="progress-text">Processing your file...</p>
+            </div>
+            <div class="progress-text">
+                <span id="progress-percentage">0%</span>
+            </div>
+            <div class="progress-bar">
+                <div id="progress-bar-inner" class="progress-bar-inner"></div>
+            </div>
+        </div>
+        
+        <div id="status-container" class="hidden"></div>
+    </div>
+    
+    <footer>
+        <p>TRACS to iCal Converter | A simple tool to make your life easier</p>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/uuid/8.3.2/uuid.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Elements
+            const uploadArea = document.getElementById('upload-area');
+            const fileInput = document.getElementById('file-input');
+            const browseButton = document.getElementById('browse-button');
+            const uploadCard = document.getElementById('upload-card');
+            const optionsCard = document.getElementById('options-card');
+            const progressContainer = document.getElementById('progress-container');
+            const progressText = document.getElementById('progress-text');
+            const progressPercentage = document.getElementById('progress-percentage');
+            const progressBarInner = document.getElementById('progress-bar-inner');
+            const previewContainer = document.getElementById('preview-container');
+            const statusContainer = document.getElementById('status-container');
+            const generateBtn = document.getElementById('generate-btn');
+            
+            // Variables
+            let allCalendarData = null;
+            let filteredData = null;
+            
+            // Set up drag and drop
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, highlight, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, unhighlight, false);
+            });
+            
+            function highlight() {
+                uploadArea.classList.add('highlight');
+            }
+            
+            function unhighlight() {
+                uploadArea.classList.remove('highlight');
+            }
+            
+            // Handle file drop
+            uploadArea.addEventListener('drop', function(e) {
+                const file = e.dataTransfer.files[0];
+                handleFile(file);
+            });
+            
+            // Handle file input change
+            fileInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                handleFile(file);
+            });
+            
+            // Connect browse button
+            browseButton.addEventListener('click', function() {
+                fileInput.click();
+            });
+            
+            // Handle file selection
+            function handleFile(file) {
+                if (!file || file.type !== 'text/csv') {
+                    showStatus('error', 'Please select a valid CSV file', 'The file you selected is not a CSV file. Please try again with a TRACS Enterprise CSV export.');
+                    return;
+                }
+                
+                showProgress('Reading your schedule file...', 0);
+                
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    try {
+                        const contents = e.target.result;
+                        processCSV(contents);
+                    } catch (error) {
+                        console.error('Error processing file:', error);
+                        showStatus('error', 'Error Processing File', 'There was a problem reading your file: ' + error.message);
+                        hideProgress();
+                    }
+                };
+                
+                reader.onerror = function() {
+                    showStatus('error', 'Error Reading File', 'There was a problem reading your file. Please try again.');
+                    hideProgress();
+                };
+                
+                try {
+                    reader.readAsText(file);
+                } catch (error) {
+                    showStatus('error', 'Error Reading File', 'There was a problem reading your file: ' + error.message);
+                    hideProgress();
+                }
+            }
+            
+            // Process the CSV file
+            function processCSV(csvContent) {
+                updateProgress('Parsing CSV file...', 30);
+                
+                try {
+                    Papa.parse(csvContent, {
+                        header: false,
+                        skipEmptyLines: true,
+                        complete: function(results) {
+                            try {
+                                updateProgress('Converting schedule format...', 60);
+                                const rawData = results.data;
+                                
+                                // Find the header row
+                                let headerRow = -1;
+                                for (let i = 0; i < rawData.length; i++) {
+                                    if (rawData[i].includes("Date") && 
+                                        rawData[i].includes("On") && 
+                                        rawData[i].includes("Off")) {
+                                        headerRow = i;
+                                        break;
+                                    }
+                                }
+                                
+                                if (headerRow === -1) {
+                                    throw new Error("Could not find header row in CSV. Please ensure this is a valid TRACS Enterprise export file.");
+                                }
+                                
+                                // Extract data rows
+                                const dataRows = rawData.slice(headerRow + 1);
+                                
+                                // Create array for iCal compatible data
+                                const icalData = [];
+                                
+                                // Add header row
+                                icalData.push(["Subject", "Start Date", "Start Time", "End Date", "End Time", "All Day", "Description", "Location"]);
+                                
+                                // First pass: identify overnight shifts and their end times
+                                const overnightShiftEndTimes = {};
+                                
+                                dataRows.forEach(row => {
+                                    if (!row[0] || !row[0].includes('/')) return;
+                                    
+                                    const dateText = row[0];
+                                    const dateMatch = dateText.match(/(\d{2}\/\d{2}).*?(\d{2}\/\d{2}\/\d{4})/);
+                                    if (!dateMatch) return;
+                                    
+                                    const fullDate = dateMatch[2];
+                                    const [day, month, year] = fullDate.split('/');
+                                    const formattedDate = `${month}/${day}/${year}`;
+                                    
+                                    const startTime = row[1];
+                                    const endTime = row[2];
+                                    
+                                    if (startTime && endTime && startTime !== "RD" && startTime !== "AL" && startTime !== "STUD") {
+                                        try {
+                                            const [startHour, startMinute] = startTime.split(':').map(Number);
+                                            const [endHour, endMinute] = endTime.split(':').map(Number);
+                                            
+                                            const startTimeMinutes = startHour * 60 + startMinute;
+                                            const endTimeMinutes = endHour * 60 + endMinute;
+                                            
+                                            if (endTimeMinutes < startTimeMinutes) {
+                                                const dateParts = formattedDate.split('/');
+                                                const nextDateObj = new Date(dateParts[2], dateParts[0] - 1, dateParts[1]);
+                                                nextDateObj.setDate(nextDateObj.getDate() + 1);
+                                                
+                                                const nextDate = `${nextDateObj.getMonth() + 1}/${nextDateObj.getDate()}/${nextDateObj.getFullYear()}`;
+                                                overnightShiftEndTimes[nextDate] = endTime;
+                                            }
+                                        } catch (error) {
+                                            console.error('Error processing time:', error, row);
+                                        }
+                                    }
+                                });
+                                
+                                // Second pass: process each row
+                                dataRows.forEach(row => {
+                                    if (!row[0] || !row[0].includes('/')) return;
+                                    
+                                    const dateText = row[0];
+                                    const dateMatch = dateText.match(/(\d{2}\/\d{2}).*?(\d{2}\/\d{2}\/\d{4})/);
+                                    if (!dateMatch) return;
+                                    
+                                    const fullDate = dateMatch[2];
+                                    const [day, month, year] = fullDate.split('/');
+                                    const formattedDate = `${month}/${day}/${year}`;
+                                    
+                                    const startTime = row[1];
+                                    const endTime = row[2];
+                                    const shiftCode = row[3] || "";
+                                    
+                                    const previousShiftEndTime = overnightShiftEndTimes[formattedDate];
+                                    
+                                    // Handle Rest Days
+                                    if (!startTime || startTime === "RD") {
+                                        let restDayStartTime = "";
+                                        let restDayEndTime = "";
+                                        let allDay = "TRUE";
+                                        
+                                        if (previousShiftEndTime) {
+                                            const [hours, minutes] = previousShiftEndTime.split(':').map(Number);
+                                            let newMinutes = minutes + 1;
+                                            let newHours = hours;
+                                            
+                                            if (newMinutes >= 60) {
+                                                newHours = (newHours + 1) % 24;
+                                                newMinutes = newMinutes % 60;
+                                            }
+                                            
+                                            restDayStartTime = `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
+                                            restDayEndTime = "23:59";
+                                            allDay = "FALSE";
+                                        }
+                                        
+                                        icalData.push([
+                                            "Rest Day",
+                                            formattedDate,
+                                            restDayStartTime,
+                                            formattedDate,
+                                            restDayEndTime,
+                                            allDay,
+                                            `Rest Day (${dateText})`,
+                                            ""
+                                        ]);
+                                    }
+                                    // Handle Annual Leave
+                                    else if (startTime === "AL") {
+                                        let alStartTime = "";
+                                        let alEndTime = "";
+                                        let allDay = "TRUE";
+                                        
+                                        if (previousShiftEndTime) {
+                                            const [hours, minutes] = previousShiftEndTime.split(':').map(Number);
+                                            let newMinutes = minutes + 1;
+                                            let newHours = hours;
+                                            
+                                            if (newMinutes >= 60) {
+                                                newHours = (newHours + 1) % 24;
+                                                newMinutes = newMinutes % 60;
+                                            }
+                                            
+                                            alStartTime = `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
+                                            alEndTime = "23:59";
+                                            allDay = "FALSE";
+                                        }
+                                        
+                                        icalData.push([
+                                            "ANNUAL LEAVE",
+                                            formattedDate,
+                                            alStartTime,
+                                            formattedDate,
+                                            alEndTime,
+                                            allDay,
+                                            `Annual Leave (${dateText})`,
+                                            ""
+                                        ]);
+                                    }
+                                    // Handle Study Days
+                                    else if (startTime === "STUD") {
+                                        let studStartTime = "09:00";
+                                        
+                                        if (previousShiftEndTime) {
+                                            const [hours, minutes] = previousShiftEndTime.split(':').map(Number);
+                                            let newMinutes = minutes + 1;
+                                            let newHours = hours;
+                                            
+                                            if (newMinutes >= 60) {
+                                                newHours = (newHours + 1) % 24;
+                                                newMinutes = newMinutes % 60;
+                                            }
+                                            
+                                            const calculatedStartMinutes = newHours * 60 + newMinutes;
+                                            if (calculatedStartMinutes > 9 * 60) {
+                                                studStartTime = `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
+                                            }
+                                        }
+                                        
+                                        icalData.push([
+                                            "STUD Day",
+                                            formattedDate,
+                                            studStartTime,
+                                            formattedDate,
+                                            "17:00",
+                                            "FALSE",
+                                            `Study Day (${dateText})`,
+                                            ""
+                                        ]);
+                                    }
+                                    // Handle regular shifts
+                                    else {
+                                        let endDate = formattedDate;
+                                        
+                                        if (startTime && endTime) {
+                                            const [startHour, startMinute] = startTime.split(':').map(Number);
+                                            const [endHour, endMinute] = endTime.split(':').map(Number);
+                                            
+                                            const startTimeMinutes = startHour * 60 + startMinute;
+                                            const endTimeMinutes = endHour * 60 + endMinute;
+                                            
+                                            if (endTimeMinutes < startTimeMinutes) {
+                                                const dateParts = formattedDate.split('/');
+                                                const startDateObj = new Date(dateParts[2], dateParts[0] - 1, dateParts[1]);
+                                                
+                                                const endDateObj = new Date(startDateObj);
+                                                endDateObj.setDate(endDateObj.getDate() + 1);
+                                                
+                                                endDate = `${endDateObj.getMonth() + 1}/${endDateObj.getDate()}/${endDateObj.getFullYear()}`;
+                                            }
+                                        }
+                                        
+                                        icalData.push([
+                                            shiftCode || "Work Shift",
+                                            formattedDate,
+                                            startTime,
+                                            endDate,
+                                            endTime,
+                                            "FALSE",
+                                            `Work Shift (${dateText})`,
+                                            ""
+                                        ]);
+                                    }
+                                });
+                                
+                                // Store the data
+                                allCalendarData = icalData;
+                                
+                                // Apply default filter (all events)
+                                applyFilter('all');
+                                
+                                // Create a preview table
+                                createPreview();
+                                
+                                // Show options
+                                updateProgress('Ready!', 100);
+                                setTimeout(function() {
+                                    hideProgress();
+                                    uploadCard.classList.add('hidden');
+                                    optionsCard.classList.remove('hidden');
+                                }, 500);
+                                
+                            } catch (error) {
+                                console.error('Error processing CSV:', error);
+                                showStatus('error', 'Error Processing CSV', 'There was a problem processing your file: ' + error.message);
+                                hideProgress();
+                            }
+                        },
+                        error: function(error) {
+                            console.error('Error parsing CSV:', error);
+                            showStatus('error', 'Error Parsing CSV', 'There was a problem parsing your file. Please ensure it is a valid CSV file.');
+                            hideProgress();
+                        }
+                    });
+                } catch (error) {
+                    console.error('Error in Papa.parse:', error);
+                    showStatus('error', 'Error Parsing CSV', 'There was a problem parsing your file: ' + error.message);
+                    hideProgress();
+                }
+            }
+            
+            // Apply filter to calendar data
+            function applyFilter(filterType) {
+                if (!allCalendarData) return;
+                
+                filteredData = [];
+                filteredData.push(allCalendarData[0]); // Keep header row
+                
+                switch(filterType) {
+                    case 'all':
+                        // Include all events
+                        filteredData = [...allCalendarData];
+                        break;
+                        
+                    case 'workdays':
+                        // Only work shifts and STUD days
+                        for (let i = 1; i < allCalendarData.length; i++) {
+                            const row = allCalendarData[i];
+                            if (row[0] !== "Rest Day" && row[0] !== "ANNUAL LEAVE") {
+                                filteredData.push(row);
+                            }
+                        }
+                        break;
+                        
+                    case 'daysoff':
+                        // Only rest days and annual leave
+                        for (let i = 1; i < allCalendarData.length; i++) {
+                            const row = allCalendarData[i];
+                            if (row[0] === "Rest Day" || row[0] === "ANNUAL LEAVE") {
+                                filteredData.push(row);
+                            }
+                        }
+                        break;
+                }
+                
+                // Update the preview
+                createPreview();
+            }
+            
+            // Create preview table
+            function createPreview() {
+                if (!filteredData || filteredData.length <= 1) return;
+                
+                previewContainer.innerHTML = '';
+                previewContainer.classList.remove('hidden');
+                
+                const table = document.createElement('table');
+                table.className = 'preview-table';
+                
+                // Create header row
+                const thead = document.createElement('thead');
+                const headerRow = document.createElement('tr');
+                
+                // Only show important columns
+                const visibleColumns = ['Subject', 'Start Date', 'Start Time', 'End Date', 'End Time'];
+                
+                visibleColumns.forEach(colName => {
+                    const colIndex = filteredData[0].indexOf(colName);
+                    if (colIndex !== -1) {
+                        const th = document.createElement('th');
+                        th.textContent = colName;
+                        headerRow.appendChild(th);
+                    }
+                });
+                
+                thead.appendChild(headerRow);
+                table.appendChild(thead);
+                
+                // Create data rows (limit to 5 for preview)
+                const tbody = document.createElement('tbody');
+                const previewRows = Math.min(filteredData.length - 1, 5);
+                
+                for (let i = 1; i <= previewRows; i++) {
+                    const tr = document.createElement('tr');
+                    
+                    // Determine event type
+                    let eventType = '';
+                    if (filteredData[i][0] === 'Rest Day') {
+                        eventType = 'rest';
+                    } else if (filteredData[i][0] === 'ANNUAL LEAVE') {
+                        eventType = 'leave';
+                    } else if (filteredData[i][0] === 'STUD Day') {
+                        eventType = 'study';
+                    } else {
+                        eventType = 'work';
+                    }
+                    
+                    // Add only visible columns
+                    visibleColumns.forEach(colName => {
+                        const colIndex = filteredData[0].indexOf(colName);
+                        if (colIndex !== -1) {
+                            const td = document.createElement('td');
+                            
+                            if (colName === 'Subject') {
+                                const span = document.createElement('span');
+                                span.textContent = filteredData[i][colIndex];
+                                td.appendChild(span);
+                                
+                                const tag = document.createElement('span');
+                                tag.className = `tag tag-${eventType}`;
+                                switch(eventType) {
+                                    case 'rest':
+                                        tag.textContent = 'REST';
+                                        break;
+                                    case 'leave':
+                                        tag.textContent = 'LEAVE';
+                                        break;
+                                    case 'study':
+                                        tag.textContent = 'STUD';
+                                        break;
+                                    case 'work':
+                                        tag.textContent = 'WORK';
+                                        break;
+                                }
+                                td.appendChild(tag);
+                            } else {
+                                td.textContent = filteredData[i][colIndex];
+                            }
+                            
+                            tr.appendChild(td);
+                        }
+                    });
+                    
+                    tbody.appendChild(tr);
+                }
+                
+                table.appendChild(tbody);
+                previewContainer.appendChild(table);
+                
+                // Add info about the number of events
+                const totalEvents = filteredData.length - 1;
+                const previewInfo = document.createElement('div');
+                previewInfo.className = 'preview-info';
+                
+                let eventsType = 'events';
+                switch (document.querySelector('input[name="calendar-type"]:checked').value) {
+                    case 'workdays':
+                        eventsType = 'work events';
+                        break;
+                    case 'daysoff':
+                        eventsType = 'days off';
+                        break;
+                }
+                
+                previewInfo.textContent = `Showing preview of ${previewRows} of ${totalEvents} ${eventsType}`;
+                previewContainer.appendChild(previewInfo);
+            }
+            
+            // Generate iCal file
+            generateBtn.addEventListener('click', function() {
+                if (!filteredData) {
+                    showStatus('error', 'No Data Available', 'Please upload a file first.');
+                    return;
+                }
+                
+                showProgress('Generating iCal file...', 0);
+                
+                setTimeout(function() {
+                    try {
+                        updateProgress('Converting to iCal format...', 50);
+                        
+                        // Parse the data for iCal
+                        const events = [];
+                        const headers = filteredData[0];
+                        
+                        // Convert array data to objects
+                        for (let i = 1; i < filteredData.length; i++) {
+                            const event = {};
+                            for (let j = 0; j < headers.length; j++) {
+                                event[headers[j]] = filteredData[i][j];
+                            }
+                            events.push(event);
+                        }
+                        
+                        // Generate iCal content
+                        const icalContent = generateICalContent(events);
+                        
+                        updateProgress('Creating downloadable file...', 80);
+                        
+                        // Create downloadable file
+                        const blob = new Blob([icalContent], { type: 'text/calendar;charset=utf-8' });
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = 'tracs_schedule.ics';
+                        
+                        // Update progress and show success message
+                        updateProgress('Done!', 100);
+                        
+                        setTimeout(function() {
+                            hideProgress();
+                            
+                            // Show success message with download button
+                            const filterType = document.querySelector('input[name="calendar-type"]:checked').value;
+                            let eventCount = filteredData.length - 1; // Subtract header row
+                            let eventType = 'events';
+                            
+                            switch(filterType) {
+                                case 'workdays':
+                                    eventType = 'work shifts and STUD days';
+                                    break;
+                                case 'daysoff':
+                                    eventType = 'rest days and annual leave';
+                                    break;
+                            }
+                            
+                            showStatus('success', 'Calendar File Ready!', 
+                                `Your iCal file with ${eventCount} ${eventType} is ready to download. Click the button below to save it to your computer.`,
+                                function() {
+                                    link.click();
+                                });
+                        }, 500);
+                        
+                    } catch (error) {
+                        console.error('Error generating iCal:', error);
+                        hideProgress();
+                        showStatus('error', 'Error Generating Calendar', 'There was a problem creating your iCal file: ' + error.message);
+                    }
+                }, 500); // Small delay for better UX
+            });
+            
+            // Generate iCal content
+            function generateICalContent(events) {
+                // Start the iCal file
+                let icalContent = [
+                    'BEGIN:VCALENDAR',
+                    'VERSION:2.0',
+                    'PRODID:-//TRACS Converter//EN',
+                    'CALSCALE:GREGORIAN',
+                    'METHOD:PUBLISH'
+                ];
+                
+                // Process each event
+                events.forEach(event => {
+                    try {
+                        if (!event.Subject || !event['Start Date']) return;
+                        
+                        // Generate unique ID
+                        const uid = uuid.v4();
+                        
+                        // Format dates and times
+                        let startDateTime, endDateTime;
+                        const allDay = event['All Day'] && (event['All Day'].toUpperCase() === 'TRUE');
+                        
+                        // Get the date parts
+                        const startDateParts = event['Start Date'].split('/');
+                        if (startDateParts.length !== 3) return;
+                        
+                        const startMonth = startDateParts[0].padStart(2, '0');
+                        const startDay = startDateParts[1].padStart(2, '0');
+                        const startYear = startDateParts[2];
+                        
+                        let endMonth, endDay, endYear;
+                        
+                        if (event['End Date']) {
+                            const endDateParts = event['End Date'].split('/');
+                            if (endDateParts.length === 3) {
+                                endMonth = endDateParts[0].padStart(2, '0');
+                                endDay = endDateParts[1].padStart(2, '0');
+                                endYear = endDateParts[2];
+                            } else {
+                                endMonth = startMonth;
+                                endDay = startDay;
+                                endYear = startYear;
+                            }
+                        } else {
+                            endMonth = startMonth;
+                            endDay = startDay;
+                            endYear = startYear;
+                        }
+                        
+                        // Format for iCal
+                        if (allDay) {
+                            // All-day events
+                            startDateTime = `${startYear}${startMonth}${startDay}`;
+                            
+                            // For all-day events, end date should be the day after
+                            const endDateObj = new Date(`${endYear}-${endMonth}-${endDay}`);
+                            endDateObj.setDate(endDateObj.getDate() + 1);
+                            
+                            endYear = endDateObj.getFullYear();
+                            endMonth = String(endDateObj.getMonth() + 1).padStart(2, '0');
+                            endDay = String(endDateObj.getDate()).padStart(2, '0');
+                            
+                            endDateTime = `${endYear}${endMonth}${endDay}`;
+                        } else {
+                            // Timed events
+                            let startTime = event['Start Time'] || '00:00';
+                            let endTime = event['End Time'] || '23:59';
+                            
+                            // Clean up times
+                            startTime = startTime.trim();
+                            endTime = endTime.trim();
+                            
+                            // Ensure proper format
+                            if (startTime.split(':').length !== 2) startTime = '00:00';
+                            if (endTime.split(':').length !== 2) endTime = '23:59';
+                            
+                            const [startHour, startMinute] = startTime.split(':');
+                            const [endHour, endMinute] = endTime.split(':');
+                            
+                            startDateTime = `${startYear}${startMonth}${startDay}T${startHour.padStart(2, '0')}${startMinute.padStart(2, '0')}00`;
+                            endDateTime = `${endYear}${endMonth}${endDay}T${endHour.padStart(2, '0')}${endMinute.padStart(2, '0')}00`;
+                        }
+                        
+                        // Create the event
+                        icalContent.push('BEGIN:VEVENT');
+                        icalContent.push(`UID:${uid}`);
+                        
+                        // Add dates
+                        if (allDay) {
+                            icalContent.push(`DTSTART;VALUE=DATE:${startDateTime}`);
+                            icalContent.push(`DTEND;VALUE=DATE:${endDateTime}`);
+                        } else {
+                            icalContent.push(`DTSTART:${startDateTime}`);
+                            icalContent.push(`DTEND:${endDateTime}`);
+                        }
+                        
+                        // Add event details
+                        icalContent.push(`SUMMARY:${escapeIcal(event.Subject)}`);
+                        
+                        if (event.Description) {
+                            icalContent.push(`DESCRIPTION:${escapeIcal(event.Description)}`);
+                        }
+                        
+                        if (event.Location) {
+                            icalContent.push(`LOCATION:${escapeIcal(event.Location)}`);
+                        }
+                        
+                        // Add creation timestamp
+                        const now = new Date();
+                        const timestamp = now.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+                        icalContent.push(`DTSTAMP:${timestamp}`);
+                        
+                        icalContent.push('END:VEVENT');
+                    } catch (error) {
+                        console.error('Error processing event for iCal:', error, event);
+                    }
+                });
+                
+                // Close the calendar
+                icalContent.push('END:VCALENDAR');
+                
+                return icalContent.join('\r\n');
+            }
+            
+            // Escape special characters for iCal
+            function escapeIcal(text) {
+                if (!text) return '';
+                return text
+                    .replace(/\\/g, '\\\\')
+                    .replace(/;/g, '\\;')
+                    .replace(/,/g, '\\,')
+                    .replace(/\n/g, '\\n');
+            }
+            
+            // Radio button handlers for calendar type
+            document.querySelectorAll('input[name="calendar-type"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    applyFilter(this.value);
+                });
+            });
+            
+            // Helper functions
+            function showProgress(text, percent) {
+                progressText.textContent = text;
+                progressPercentage.textContent = percent + '%';
+                progressBarInner.style.width = percent + '%';
+                progressContainer.classList.remove('hidden');
+                statusContainer.classList.add('hidden');
+            }
+            
+            function updateProgress(text, percent) {
+                progressText.textContent = text;
+                progressPercentage.textContent = percent + '%';
+                progressBarInner.style.width = percent + '%';
+            }
+            
+            function hideProgress() {
+                progressContainer.classList.add('hidden');
+            }
+            
+            function showStatus(type, title, message, callback) {
+                statusContainer.innerHTML = '';
+                statusContainer.classList.remove('hidden');
+                
+                const statusDiv = document.createElement('div');
+                statusDiv.className = `status ${type}`;
+                
+                const iconClass = type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle';
+                
+                statusDiv.innerHTML = `
+                    <div class="status-icon">
+                        <i class="${iconClass}"></i>
+                    </div>
+                    <h3>${title}</h3>
+                    <p class="status-message">${message}</p>
+                `;
+                
+                if (type === 'success') {
+                    // Add the import tip notice
+                    const importTip = document.createElement('div');
+                    importTip.className = 'import-tip';
+                    importTip.innerHTML = `
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <div class="import-tip-text">
+                            <strong>For best results:</strong> Use "Add Calendar" option when importing, 
+                            rather than adding to an existing calendar. This enables custom colors, easy sharing, 
+                            and simple deletion if needed.
+                        </div>
+                    `;
+                    statusDiv.appendChild(importTip);
+                    
+                    if (callback) {
+                        const downloadBtn = document.createElement('button');
+                        downloadBtn.className = 'download-btn';
+                        downloadBtn.innerHTML = '<i class="fas fa-download"></i>Download iCal File';
+                        downloadBtn.addEventListener('click', callback);
+                        statusDiv.appendChild(downloadBtn);
+                    }
+                }
+                
+                statusContainer.appendChild(statusDiv);
+            }
+        });
+    </script>
+</body>
+</html>
