@@ -1123,6 +1123,8 @@
                                 // This helps properly set the start time of rest days following overnight shifts
                                 const overnightShiftEndTimes = {};
                                 
+                                console.log("First pass - identifying overnight shifts:");
+                                
                                 dataRows.forEach(row => {
                                     // Skip rows without valid date format
                                     if (!row[0] || !row[0].includes('/')) return;
@@ -1162,9 +1164,8 @@
                                                 const nextDate = `${nextDateObj.getMonth() + 1}/${nextDateObj.getDate()}/${nextDateObj.getFullYear()}`;
                                                 
                                                 // Store the end time for the next day
-                                                // This will be used to adjust the start time of any rest day on the next day
                                                 overnightShiftEndTimes[nextDate] = endTime;
-                                                console.log(`Detected overnight shift ending at ${endTime} on ${nextDate}`);
+                                                console.log(`- Overnight shift on ${formattedDate} ends at ${endTime} on ${nextDate}`);
                                             }
                                         } catch (error) {
                                             console.error('Error processing time:', error, row);
@@ -1172,7 +1173,10 @@
                                     }
                                 });
                                 
+                                console.log("All overnight shift end times:", overnightShiftEndTimes);
+                                
                                 // Step 5: Second pass - process each row into calendar events
+                                console.log("Second pass - processing each day:");
                                 dataRows.forEach(row => {
                                     // Skip rows without valid date format
                                     if (!row[0] || !row[0].includes('/')) return;
@@ -1193,8 +1197,12 @@
                                     
                                     // Check if this date has a previous overnight shift ending on it
                                     const previousShiftEndTime = overnightShiftEndTimes[formattedDate];
+                                    
+                                    // Log what we're processing
                                     if (previousShiftEndTime) {
-                                        console.log(`Found previousShiftEndTime for ${formattedDate}: ${previousShiftEndTime}`);
+                                        console.log(`- Processing ${formattedDate}: ${startTime || 'RD'} (follows overnight shift ending at ${previousShiftEndTime})`);
+                                    } else {
+                                        console.log(`- Processing ${formattedDate}: ${startTime || 'RD'}`);
                                     }
                                     
                                     // ---- Handle Rest Days ----
@@ -1257,6 +1265,10 @@
                                             alStartTime = `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
                                             alEndTime = "23:59";
                                             allDay = "FALSE"; // No longer an all-day event
+                                            
+                                            console.log(`  * Adjusted A/L time: starts at ${alStartTime} (after previous shift ended at ${previousShiftEndTime})`);
+                                        } else {
+                                            console.log(`  * A/L is all-day event (no previous overnight shift)`);
                                         }
                                         
                                         // Create annual leave event
@@ -1293,7 +1305,12 @@
                                             const calculatedStartMinutes = newHours * 60 + newMinutes;
                                             if (calculatedStartMinutes > 9 * 60) {
                                                 studStartTime = `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
+                                                console.log(`  * Adjusted STUD day time: starts at ${studStartTime} (after previous shift ended at ${previousShiftEndTime})`);
+                                            } else {
+                                                console.log(`  * STUD day starts at default 09:00 (previous shift ended at ${previousShiftEndTime} but is earlier than 9 AM)`);
                                             }
+                                        } else {
+                                            console.log(`  * STUD day starts at default 09:00 (no previous overnight shift)`);
                                         }
                                         
                                         // Create study day event (9 AM - 5 PM by default)
@@ -1597,16 +1614,15 @@
             // ICAL GENERATION
             // =============================================================
             
-            /**
-             * Generate and download the iCal file when user clicks the generate button
-             */
-            generateBtn.addEventListener('click', function() {
-                if (!filteredData) {
-                    showStatus('error', 'No Data Available', 'Please upload a file first.');
-                    return;
-                }
-                
-                showProgress('Generating iCal file...', 0);
+                // Generate iCal file when user clicks the generate button
+                generateBtn.addEventListener('click', function() {
+                    if (!filteredData) {
+                        showStatus('error', 'No Data Available', 'Please upload a file first.');
+                        return;
+                    }
+                    
+                    console.log("Generating iCal file with data:", filteredData.length - 1, "events");
+                    showProgress('Generating iCal file...', 0);
                 
                 // Add slight delay for better UX
                 setTimeout(function() {
