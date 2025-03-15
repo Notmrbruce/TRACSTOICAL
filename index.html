@@ -1248,7 +1248,11 @@
                                             console.log(`RD remains all-day event (no previous overnight shift)`);
                                         }
                                         
-                                        // Create rest day event
+                                        // Create rest day event with warning if it follows an overnight shift
+                                        const description = previousShiftEndTime ? 
+                                            `Rest Day (${dateText}) - WARNING: FINISHED AFTER MIDNIGHT ASK BEFORE PLANNING ANYTHING EARLY` : 
+                                            `Rest Day (${dateText})`;
+                                            
                                         icalData.push([
                                             "RD", // Subject
                                             formattedDate, // Start Date
@@ -1256,7 +1260,7 @@
                                             formattedDate, // End Date
                                             restDayEndTime, // End Time
                                             allDay, // All Day
-                                            `Rest Day (${dateText})`, // Description
+                                            description, // Description with warning if needed
                                             "" // Location
                                         ]);
                                     }
@@ -1289,7 +1293,11 @@
                                             console.log(`A/L remains all-day event (no previous overnight shift)`);
                                         }
                                         
-                                        // Create annual leave event
+                                        // Create annual leave event with warning if it follows an overnight shift
+                                        const description = previousShiftEndTime ? 
+                                            `Annual Leave (${dateText}) - WARNING: FINISHED AFTER MIDNIGHT ASK BEFORE PLANNING ANYTHING EARLY` : 
+                                            `Annual Leave (${dateText})`;
+                                            
                                         icalData.push([
                                             "A/L", // Subject
                                             formattedDate, // Start Date
@@ -1297,7 +1305,7 @@
                                             formattedDate, // End Date
                                             alEndTime, // End Time
                                             allDay, // All Day
-                                            `Annual Leave (${dateText})`, // Description
+                                            description, // Description with warning if needed
                                             "" // Location
                                         ]);
                                     }
