@@ -909,32 +909,72 @@
     </div>
     
     <footer>
-        <p>TRACS to iCal Converter | A simple tool to make your life easier</p>
+        <p>TRACS to iCal Converter | Version 1.1.0 | Last updated: March 15, 2025</p>
     </footer>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/uuid/8.3.2/uuid.min.js"></script>
     <script>
+        /**
+         * TRACS to iCal Converter
+         * 
+         * This application converts TRACS Enterprise work schedule CSV exports into iCal (.ics) format
+         * for easy import into calendar applications.
+         * 
+         * Features:
+         * - File drag & drop or manual selection
+         * - CSV parsing and validation
+         * - Calendar event filtering (work days, days off, or all)
+         * - Data preview before generating
+         * - iCal file generation with proper formatting
+         */
         document.addEventListener('DOMContentLoaded', function() {
-            // Elements
+            // =============================================================
+            // DOM ELEMENT REFERENCES
+            // =============================================================
+            
+            // Upload section
             const uploadArea = document.getElementById('upload-area');
             const fileInput = document.getElementById('file-input');
             const browseButton = document.getElementById('browse-button');
             const uploadCard = document.getElementById('upload-card');
+            
+            // Options section
             const optionsCard = document.getElementById('options-card');
+            const previewContainer = document.getElementById('preview-container');
+            const generateBtn = document.getElementById('generate-btn');
+            
+            // Progress & status indicators
             const progressContainer = document.getElementById('progress-container');
             const progressText = document.getElementById('progress-text');
             const progressPercentage = document.getElementById('progress-percentage');
             const progressBarInner = document.getElementById('progress-bar-inner');
-            const previewContainer = document.getElementById('preview-container');
             const statusContainer = document.getElementById('status-container');
-            const generateBtn = document.getElementById('generate-btn');
             
-            // Variables
+            // =============================================================
+            // STATE VARIABLES
+            // =============================================================
+            
+            // Stores all parsed calendar data (includes header row as first element)
             let allCalendarData = null;
+            
+            // Stores filtered data based on user selection
             let filteredData = null;
             
-            // Set up drag and drop
+            // =============================================================
+            // FILE UPLOAD HANDLING
+            // =============================================================
+            
+            /**
+             * Set up drag and drop functionality for the upload area
+             * 
+             * - Prevent default browser behavior for drag events
+             * - Highlight the drop zone on dragenter/dragover
+             * - Remove highlight on dragleave/drop
+             * - Process files when dropped
+             */
+            
+            // Prevent default browser actions for all drag events
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
                 uploadArea.addEventListener(eventName, preventDefaults, false);
             });
@@ -944,50 +984,65 @@
                 e.stopPropagation();
             }
             
+            // Add highlight styling when file is dragged over the area
             ['dragenter', 'dragover'].forEach(eventName => {
                 uploadArea.addEventListener(eventName, highlight, false);
             });
             
+            // Remove highlight styling when file leaves the area or is dropped
             ['dragleave', 'drop'].forEach(eventName => {
                 uploadArea.addEventListener(eventName, unhighlight, false);
             });
             
+            /**
+             * Highlights the upload area by adding a CSS class
+             */
             function highlight() {
                 uploadArea.classList.add('highlight');
             }
             
+            /**
+             * Removes the highlighting from the upload area
+             */
             function unhighlight() {
                 uploadArea.classList.remove('highlight');
             }
             
-            // Handle file drop
+            // Handle file drop event
             uploadArea.addEventListener('drop', function(e) {
                 const file = e.dataTransfer.files[0];
                 handleFile(file);
             });
             
-            // Handle file input change
+            // Handle file selection via input
             fileInput.addEventListener('change', function(e) {
                 const file = e.target.files[0];
                 handleFile(file);
             });
             
-            // Connect browse button
+            // Connect browse button to trigger file input
             browseButton.addEventListener('click', function() {
                 fileInput.click();
             });
             
-            // Handle file selection
+            /**
+             * Process the selected or dropped file
+             * 
+             * @param {File} file - The file object to process
+             */
             function handleFile(file) {
+                // Validate file type (must be CSV)
                 if (!file || file.type !== 'text/csv') {
                     showStatus('error', 'Please select a valid CSV file', 'The file you selected is not a CSV file. Please try again with a TRACS Enterprise CSV export.');
                     return;
                 }
                 
+                // Show progress indicator and start reading the file
                 showProgress('Reading your schedule file...', 0);
                 
                 const reader = new FileReader();
                 
+                // Define what happens when file is successfully loaded
                 reader.onload = function(e) {
                     try {
                         const contents = e.target.result;
@@ -999,11 +1054,13 @@
                     }
                 };
                 
+                // Define what happens if an error occurs during file reading
                 reader.onerror = function() {
                     showStatus('error', 'Error Reading File', 'There was a problem reading your file. Please try again.');
                     hideProgress();
                 };
                 
+                // Start reading the file
                 try {
                     reader.readAsText(file);
                 } catch (error) {
@@ -1012,20 +1069,29 @@
                 }
             }
             
-            // Process the CSV file
+            // =============================================================
+            // CSV PROCESSING & DATA TRANSFORMATION
+            // =============================================================
+            
+            /**
+             * Process the CSV file contents and convert to calendar data
+             * 
+             * @param {string} csvContent - The raw CSV data as string
+             */
             function processCSV(csvContent) {
                 updateProgress('Parsing CSV file...', 30);
                 
                 try {
+                    // Use PapaParse library to parse the CSV data
                     Papa.parse(csvContent, {
-                        header: false,
+                        header: false, // CSV has custom formatting, will handle headers manually
                         skipEmptyLines: true,
                         complete: function(results) {
                             try {
                                 updateProgress('Converting schedule format...', 60);
                                 const rawData = results.data;
                                 
-                                // Find the header row
+                                // Step 1: Find the header row containing 'Date', 'On', 'Off'
                                 let headerRow = -1;
                                 for (let i = 0; i < rawData.length; i++) {
                                     if (rawData[i].includes("Date") && 
@@ -1036,50 +1102,64 @@
                                     }
                                 }
                                 
+                                // Validate that this appears to be a TRACS export
                                 if (headerRow === -1) {
                                     throw new Error("Could not find header row in CSV. Please ensure this is a valid TRACS Enterprise export file.");
                                 }
                                 
-                                // Extract data rows
+                                // Step 2: Extract data rows (everything after the header)
                                 const dataRows = rawData.slice(headerRow + 1);
                                 
-                                // Create array for iCal compatible data
+                                // Step 3: Create array for iCal compatible data
                                 const icalData = [];
                                 
-                                // Add header row
+                                // Add standard iCal header row
                                 icalData.push(["Subject", "Start Date", "Start Time", "End Date", "End Time", "All Day", "Description", "Location"]);
                                 
-                                // First pass: identify overnight shifts and their end times
+                                // Step 4: First pass - identify overnight shifts to handle their end times
+                                // This helps properly set the start time of rest days following overnight shifts
                                 const overnightShiftEndTimes = {};
                                 
                                 dataRows.forEach(row => {
+                                    // Skip rows without valid date format
                                     if (!row[0] || !row[0].includes('/')) return;
                                     
+                                    // Extract date information
                                     const dateText = row[0];
                                     const dateMatch = dateText.match(/(\d{2}\/\d{2}).*?(\d{2}\/\d{2}\/\d{4})/);
                                     if (!dateMatch) return;
                                     
                                     const fullDate = dateMatch[2];
                                     const [day, month, year] = fullDate.split('/');
+                                    // Convert to MM/DD/YYYY format for consistency
                                     const formattedDate = `${month}/${day}/${year}`;
                                     
                                     const startTime = row[1];
                                     const endTime = row[2];
                                     
+                                    // Only process actual shifts (not RD, AL, STUD)
                                     if (startTime && endTime && startTime !== "RD" && startTime !== "AL" && startTime !== "STUD") {
                                         try {
+                                            // Convert time strings to numeric values
                                             const [startHour, startMinute] = startTime.split(':').map(Number);
                                             const [endHour, endMinute] = endTime.split(':').map(Number);
                                             
                                             const startTimeMinutes = startHour * 60 + startMinute;
                                             const endTimeMinutes = endHour * 60 + endMinute;
                                             
+                                            // If end time is earlier than start time, it's an overnight shift
+                                            // e.g., 22:00 - 06:00 means it ends the next day
                                             if (endTimeMinutes < startTimeMinutes) {
+                                                // Calculate the next day's date
                                                 const dateParts = formattedDate.split('/');
                                                 const nextDateObj = new Date(dateParts[2], dateParts[0] - 1, dateParts[1]);
                                                 nextDateObj.setDate(nextDateObj.getDate() + 1);
                                                 
+                                                // Format as MM/DD/YYYY
                                                 const nextDate = `${nextDateObj.getMonth() + 1}/${nextDateObj.getDate()}/${nextDateObj.getFullYear()}`;
+                                                
+                                                // Store the end time for the next day
+                                                // This will be used to adjust the start time of any rest day on the next day
                                                 overnightShiftEndTimes[nextDate] = endTime;
                                             }
                                         } catch (error) {
@@ -1088,123 +1168,145 @@
                                     }
                                 });
                                 
-                                // Second pass: process each row
+                                // Step 5: Second pass - process each row into calendar events
                                 dataRows.forEach(row => {
+                                    // Skip rows without valid date format
                                     if (!row[0] || !row[0].includes('/')) return;
                                     
+                                    // Extract date information
                                     const dateText = row[0];
                                     const dateMatch = dateText.match(/(\d{2}\/\d{2}).*?(\d{2}\/\d{2}\/\d{4})/);
                                     if (!dateMatch) return;
                                     
                                     const fullDate = dateMatch[2];
                                     const [day, month, year] = fullDate.split('/');
+                                    // Convert to MM/DD/YYYY format for consistency
                                     const formattedDate = `${month}/${day}/${year}`;
                                     
                                     const startTime = row[1];
                                     const endTime = row[2];
                                     const shiftCode = row[3] || "";
                                     
+                                    // Check if this date has a previous overnight shift ending on it
                                     const previousShiftEndTime = overnightShiftEndTimes[formattedDate];
                                     
-                                    // Handle Rest Days
+                                    // ---- Handle Rest Days ----
                                     if (!startTime || startTime === "RD") {
                                         let restDayStartTime = "";
                                         let restDayEndTime = "";
                                         let allDay = "TRUE";
                                         
+                                        // If there's an overnight shift ending on this day,
+                                        // make the rest day start just after the shift ends
                                         if (previousShiftEndTime) {
                                             const [hours, minutes] = previousShiftEndTime.split(':').map(Number);
                                             let newMinutes = minutes + 1;
                                             let newHours = hours;
                                             
+                                            // Handle minute overflow
                                             if (newMinutes >= 60) {
                                                 newHours = (newHours + 1) % 24;
                                                 newMinutes = newMinutes % 60;
                                             }
                                             
+                                            // Format as HH:MM
                                             restDayStartTime = `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
                                             restDayEndTime = "23:59";
-                                            allDay = "FALSE";
+                                            allDay = "FALSE"; // No longer an all-day event
                                         }
                                         
+                                        // Create rest day event
                                         icalData.push([
-                                            "Rest Day",
-                                            formattedDate,
-                                            restDayStartTime,
-                                            formattedDate,
-                                            restDayEndTime,
-                                            allDay,
-                                            `Rest Day (${dateText})`,
-                                            ""
+                                            "Rest Day", // Subject
+                                            formattedDate, // Start Date
+                                            restDayStartTime, // Start Time
+                                            formattedDate, // End Date
+                                            restDayEndTime, // End Time
+                                            allDay, // All Day
+                                            `Rest Day (${dateText})`, // Description
+                                            "" // Location
                                         ]);
                                     }
-                                    // Handle Annual Leave
+                                    // ---- Handle Annual Leave ----
                                     else if (startTime === "AL" || startTime === "A/L") {
                                         let alStartTime = "";
                                         let alEndTime = "";
                                         let allDay = "TRUE";
                                         
+                                        // If there's an overnight shift ending on this day,
+                                        // make the leave day start just after the shift ends
                                         if (previousShiftEndTime) {
                                             const [hours, minutes] = previousShiftEndTime.split(':').map(Number);
                                             let newMinutes = minutes + 1;
                                             let newHours = hours;
                                             
+                                            // Handle minute overflow
                                             if (newMinutes >= 60) {
                                                 newHours = (newHours + 1) % 24;
                                                 newMinutes = newMinutes % 60;
                                             }
                                             
+                                            // Format as HH:MM
                                             alStartTime = `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
                                             alEndTime = "23:59";
-                                            allDay = "FALSE";
+                                            allDay = "FALSE"; // No longer an all-day event
                                         }
                                         
+                                        // Create annual leave event
                                         icalData.push([
-                                            "ANNUAL LEAVE",
-                                            formattedDate,
-                                            alStartTime,
-                                            formattedDate,
-                                            alEndTime,
-                                            allDay,
-                                            `Annual Leave (${dateText})`,
-                                            ""
+                                            "ANNUAL LEAVE", // Subject
+                                            formattedDate, // Start Date
+                                            alStartTime, // Start Time
+                                            formattedDate, // End Date
+                                            alEndTime, // End Time
+                                            allDay, // All Day
+                                            `Annual Leave (${dateText})`, // Description
+                                            "" // Location
                                         ]);
                                     }
-                                    // Handle Study Days
+                                    // ---- Handle Study Days ----
                                     else if (startTime === "STUD") {
+                                        // Default start time for study days is 9 AM
                                         let studStartTime = "09:00";
                                         
+                                        // If there's an overnight shift ending on this day,
+                                        // make the study day start just after the shift ends (if later than 9 AM)
                                         if (previousShiftEndTime) {
                                             const [hours, minutes] = previousShiftEndTime.split(':').map(Number);
                                             let newMinutes = minutes + 1;
                                             let newHours = hours;
                                             
+                                            // Handle minute overflow
                                             if (newMinutes >= 60) {
                                                 newHours = (newHours + 1) % 24;
                                                 newMinutes = newMinutes % 60;
                                             }
                                             
+                                            // Only use the end time of the previous shift if it's after 9 AM
                                             const calculatedStartMinutes = newHours * 60 + newMinutes;
                                             if (calculatedStartMinutes > 9 * 60) {
                                                 studStartTime = `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
                                             }
                                         }
                                         
+                                        // Create study day event (9 AM - 5 PM by default)
                                         icalData.push([
-                                            "STUD Day",
-                                            formattedDate,
-                                            studStartTime,
-                                            formattedDate,
-                                            "17:00",
-                                            "FALSE",
-                                            `Study Day (${dateText})`,
-                                            ""
+                                            "STUD Day", // Subject
+                                            formattedDate, // Start Date
+                                            studStartTime, // Start Time
+                                            formattedDate, // End Date
+                                            "17:00", // End Time (5 PM)
+                                            "FALSE", // All Day
+                                            `Study Day (${dateText})`, // Description
+                                            "" // Location
                                         ]);
                                     }
-                                    // Handle regular shifts
+                                    // ---- Handle Regular Work Shifts ----
                                     else {
+                                        // Start with end date same as start date
                                         let endDate = formattedDate;
                                         
+                                        // Check if this is an overnight shift
                                         if (startTime && endTime) {
                                             const [startHour, startMinute] = startTime.split(':').map(Number);
                                             const [endHour, endMinute] = endTime.split(':').map(Number);
@@ -1212,31 +1314,35 @@
                                             const startTimeMinutes = startHour * 60 + startMinute;
                                             const endTimeMinutes = endHour * 60 + endMinute;
                                             
+                                            // If end time is earlier than start time, it spans to next day
                                             if (endTimeMinutes < startTimeMinutes) {
                                                 const dateParts = formattedDate.split('/');
                                                 const startDateObj = new Date(dateParts[2], dateParts[0] - 1, dateParts[1]);
                                                 
+                                                // Calculate next day's date
                                                 const endDateObj = new Date(startDateObj);
                                                 endDateObj.setDate(endDateObj.getDate() + 1);
                                                 
+                                                // Format as MM/DD/YYYY
                                                 endDate = `${endDateObj.getMonth() + 1}/${endDateObj.getDate()}/${endDateObj.getFullYear()}`;
                                             }
                                         }
                                         
+                                        // Create regular shift event
                                         icalData.push([
-                                            shiftCode || "Work Shift",
-                                            formattedDate,
-                                            startTime,
-                                            endDate,
-                                            endTime,
-                                            "FALSE",
-                                            `Work Shift (${dateText})`,
-                                            ""
+                                            shiftCode || "Work Shift", // Subject (use shift code if available)
+                                            formattedDate, // Start Date
+                                            startTime, // Start Time
+                                            endDate, // End Date (might be next day)
+                                            endTime, // End Time
+                                            "FALSE", // All Day
+                                            `Work Shift (${dateText})`, // Description
+                                            "" // Location
                                         ]);
                                     }
                                 });
                                 
-                                // Store the data
+                                // Step 6: Store the complete data and show options
                                 allCalendarData = icalData;
                                 
                                 // Apply default filter (all events)
@@ -1245,7 +1351,7 @@
                                 // Create a preview table
                                 createPreview();
                                 
-                                // Show options
+                                // Update UI to show options
                                 updateProgress('Ready!', 100);
                                 setTimeout(function() {
                                     hideProgress();
@@ -1272,14 +1378,22 @@
                 }
             }
             
-            // Apply filter to calendar data
+            // =============================================================
+            // DATA FILTERING & PREVIEW
+            // =============================================================
+            
+            /**
+             * Apply a filter to the calendar data based on user selection
+             * 
+             * @param {string} filterType - The type of filter to apply ('all', 'workdays', or 'daysoff')
+             */
             function applyFilter(filterType) {
                 if (!allCalendarData) return;
                 
                 console.log("Applying filter:", filterType);
                 console.log("Total events before filtering:", allCalendarData.length - 1);
                 
-                // Count event types in original data
+                // Count event types in original data for logging
                 let restDayCount = 0;
                 let annualLeaveCount = 0;
                 let studDayCount = 0;
@@ -1287,8 +1401,8 @@
                 
                 for (let i = 1; i < allCalendarData.length; i++) {
                     const subject = allCalendarData[i][0];
-                    if (subject === "Rest Day") restDayCount++;
-                    else if (subject === "ANNUAL LEAVE") annualLeaveCount++;
+                    if (subject === "RD") restDayCount++;
+                    else if (subject === "A/L") annualLeaveCount++;
                     else if (subject === "STUD Day") studDayCount++;
                     else workShiftCount++;
                 }
@@ -1299,30 +1413,32 @@
                 console.log("- STUD Days:", studDayCount);
                 console.log("- Work Shifts:", workShiftCount);
                 
+                // Create new filtered data array, starting with header row
                 filteredData = [];
                 filteredData.push(allCalendarData[0]); // Keep header row
                 
+                // Apply the selected filter
                 switch(filterType) {
                     case 'all':
-                        // Include all events
+                        // Include all events (no filtering needed)
                         filteredData = [...allCalendarData];
                         break;
                         
                     case 'workdays':
-                        // Only work shifts and STUD days
+                        // Only include work shifts and STUD days
                         for (let i = 1; i < allCalendarData.length; i++) {
                             const row = allCalendarData[i];
-                            if (row[0] !== "Rest Day" && row[0] !== "ANNUAL LEAVE") {
+                            if (row[0] !== "RD" && row[0] !== "A/L") {
                                 filteredData.push(row);
                             }
                         }
                         break;
                         
                     case 'daysoff':
-                        // Only rest days and annual leave
+                        // Only include rest days and annual leave
                         for (let i = 1; i < allCalendarData.length; i++) {
                             const row = allCalendarData[i];
-                            if (row[0] === "Rest Day" || row[0] === "ANNUAL LEAVE") {
+                            if (row[0] === "RD" || row[0] === "A/L") {
                                 filteredData.push(row);
                             }
                         }
@@ -1331,7 +1447,7 @@
                 
                 console.log("Total events after filtering:", filteredData.length - 1);
                 
-                // Count event types in filtered data
+                // Count event types in filtered data for logging
                 restDayCount = 0;
                 annualLeaveCount = 0;
                 studDayCount = 0;
@@ -1339,8 +1455,8 @@
                 
                 for (let i = 1; i < filteredData.length; i++) {
                     const subject = filteredData[i][0];
-                    if (subject === "Rest Day") restDayCount++;
-                    else if (subject === "ANNUAL LEAVE") annualLeaveCount++;
+                    if (subject === "RD") restDayCount++;
+                    else if (subject === "A/L") annualLeaveCount++;
                     else if (subject === "STUD Day") studDayCount++;
                     else workShiftCount++;
                 }
@@ -1351,17 +1467,21 @@
                 console.log("- STUD Days:", studDayCount);
                 console.log("- Work Shifts:", workShiftCount);
                 
-                // Update the preview
+                // Update the preview to reflect filtered data
                 createPreview();
             }
             
-            // Create preview table
+            /**
+             * Create a preview table showing the first few rows of filtered data
+             */
             function createPreview() {
                 if (!filteredData || filteredData.length <= 1) return;
                 
+                // Clear existing preview
                 previewContainer.innerHTML = '';
                 previewContainer.classList.remove('hidden');
                 
+                // Create table element
                 const table = document.createElement('table');
                 table.className = 'preview-table';
                 
@@ -1369,7 +1489,7 @@
                 const thead = document.createElement('thead');
                 const headerRow = document.createElement('tr');
                 
-                // Only show important columns
+                // Only show important columns in preview
                 const visibleColumns = ['Subject', 'Start Date', 'Start Time', 'End Date', 'End Time'];
                 
                 visibleColumns.forEach(colName => {
@@ -1384,14 +1504,14 @@
                 thead.appendChild(headerRow);
                 table.appendChild(thead);
                 
-                // Create data rows (limit to 5 for preview)
+                // Create data rows (limited to 5 for preview)
                 const tbody = document.createElement('tbody');
                 const previewRows = Math.min(filteredData.length - 1, 5);
                 
                 for (let i = 1; i <= previewRows; i++) {
                     const tr = document.createElement('tr');
                     
-                    // Determine event type
+                    // Determine event type for color-coding
                     let eventType = '';
                     if (filteredData[i][0] === 'Rest Day') {
                         eventType = 'rest';
@@ -1403,12 +1523,13 @@
                         eventType = 'work';
                     }
                     
-                    // Add only visible columns
+                    // Add only visible columns to the row
                     visibleColumns.forEach(colName => {
                         const colIndex = filteredData[0].indexOf(colName);
                         if (colIndex !== -1) {
                             const td = document.createElement('td');
                             
+                            // Special formatting for Subject column - add type tag
                             if (colName === 'Subject') {
                                 const span = document.createElement('span');
                                 span.textContent = filteredData[i][colIndex];
@@ -1445,11 +1566,12 @@
                 table.appendChild(tbody);
                 previewContainer.appendChild(table);
                 
-                // Add info about the number of events
+                // Add info about the number of events in the preview
                 const totalEvents = filteredData.length - 1;
                 const previewInfo = document.createElement('div');
                 previewInfo.className = 'preview-info';
                 
+                // Determine type of events based on filter
                 let eventsType = 'events';
                 switch (document.querySelector('input[name="calendar-type"]:checked').value) {
                     case 'workdays':
@@ -1464,7 +1586,13 @@
                 previewContainer.appendChild(previewInfo);
             }
             
-            // Generate iCal file
+            // =============================================================
+            // ICAL GENERATION
+            // =============================================================
+            
+            /**
+             * Generate and download the iCal file when user clicks the generate button
+             */
             generateBtn.addEventListener('click', function() {
                 if (!filteredData) {
                     showStatus('error', 'No Data Available', 'Please upload a file first.');
@@ -1473,6 +1601,7 @@
                 
                 showProgress('Generating iCal file...', 0);
                 
+                // Add slight delay for better UX
                 setTimeout(function() {
                     try {
                         updateProgress('Converting to iCal format...', 50);
@@ -1481,7 +1610,7 @@
                         const events = [];
                         const headers = filteredData[0];
                         
-                        // Convert array data to objects
+                        // Convert array data to objects (easier to work with)
                         for (let i = 1; i < filteredData.length; i++) {
                             const event = {};
                             for (let j = 0; j < headers.length; j++) {
@@ -1534,12 +1663,17 @@
                         hideProgress();
                         showStatus('error', 'Error Generating Calendar', 'There was a problem creating your iCal file: ' + error.message);
                     }
-                }, 500); // Small delay for better UX
+                }, 500);
             });
             
-            // Generate iCal content
+            /**
+             * Generate iCal content from event data
+             * 
+             * @param {Array} events - Array of event objects to convert to iCal format
+             * @return {string} Formatted iCal content as string
+             */
             function generateICalContent(events) {
-                // Start the iCal file
+                // Start the iCal file with required headers
                 let icalContent = [
                     'BEGIN:VCALENDAR',
                     'VERSION:2.0',
@@ -1551,9 +1685,10 @@
                 // Process each event
                 events.forEach(event => {
                     try {
+                        // Skip events without subject or start date
                         if (!event.Subject || !event['Start Date']) return;
                         
-                        // Generate unique ID
+                        // Generate unique ID for this event
                         const uid = uuid.v4();
                         
                         // Format dates and times
@@ -1568,6 +1703,7 @@
                         const startDay = startDateParts[1].padStart(2, '0');
                         const startYear = startDateParts[2];
                         
+                        // Get end date parts (use start date if not provided)
                         let endMonth, endDay, endYear;
                         
                         if (event['End Date']) {
@@ -1577,11 +1713,13 @@
                                 endDay = endDateParts[1].padStart(2, '0');
                                 endYear = endDateParts[2];
                             } else {
+                                // Default to start date if end date format is invalid
                                 endMonth = startMonth;
                                 endDay = startDay;
                                 endYear = startYear;
                             }
                         } else {
+                            // Default to start date if no end date
                             endMonth = startMonth;
                             endDay = startDay;
                             endYear = startYear;
@@ -1593,6 +1731,7 @@
                             startDateTime = `${startYear}${startMonth}${startDay}`;
                             
                             // For all-day events, end date should be the day after
+                            // in iCal format (exclusive end date)
                             const endDateObj = new Date(`${endYear}-${endMonth}-${endDay}`);
                             endDateObj.setDate(endDateObj.getDate() + 1);
                             
@@ -1617,15 +1756,16 @@
                             const [startHour, startMinute] = startTime.split(':');
                             const [endHour, endMinute] = endTime.split(':');
                             
+                            // Format as YYYYMMDDTHHMMSS
                             startDateTime = `${startYear}${startMonth}${startDay}T${startHour.padStart(2, '0')}${startMinute.padStart(2, '0')}00`;
                             endDateTime = `${endYear}${endMonth}${endDay}T${endHour.padStart(2, '0')}${endMinute.padStart(2, '0')}00`;
                         }
                         
-                        // Create the event
+                        // Create the event in iCal format
                         icalContent.push('BEGIN:VEVENT');
                         icalContent.push(`UID:${uid}`);
                         
-                        // Add dates
+                        // Add dates - different format for all-day vs. timed events
                         if (allDay) {
                             icalContent.push(`DTSTART;VALUE=DATE:${startDateTime}`);
                             icalContent.push(`DTEND;VALUE=DATE:${endDateTime}`);
@@ -1659,18 +1799,28 @@
                 // Close the calendar
                 icalContent.push('END:VCALENDAR');
                 
+                // Join with CRLF as required by iCal spec
                 return icalContent.join('\r\n');
             }
             
-            // Escape special characters for iCal
+            /**
+             * Escape special characters for iCal format
+             * 
+             * @param {string} text - The text to escape
+             * @return {string} Escaped text
+             */
             function escapeIcal(text) {
                 if (!text) return '';
                 return text
-                    .replace(/\\/g, '\\\\')
-                    .replace(/;/g, '\\;')
-                    .replace(/,/g, '\\,')
-                    .replace(/\n/g, '\\n');
+                    .replace(/\\/g, '\\\\')  // Escape backslashes
+                    .replace(/;/g, '\\;')    // Escape semicolons
+                    .replace(/,/g, '\\,')    // Escape commas
+                    .replace(/\n/g, '\\n');  // Escape newlines
             }
+            
+            // =============================================================
+            // UI INTERACTION & EVENT HANDLERS
+            // =============================================================
             
             // Radio button handlers for calendar type
             document.querySelectorAll('input[name="calendar-type"]').forEach(radio => {
@@ -1679,7 +1829,16 @@
                 });
             });
             
-            // Helper functions
+            // =============================================================
+            // UI HELPER FUNCTIONS
+            // =============================================================
+            
+            /**
+             * Show progress indicator with text and percentage
+             * 
+             * @param {string} text - Text to display
+             * @param {number} percent - Progress percentage (0-100)
+             */
             function showProgress(text, percent) {
                 progressText.textContent = text;
                 progressPercentage.textContent = percent + '%';
@@ -1688,16 +1847,33 @@
                 statusContainer.classList.add('hidden');
             }
             
+            /**
+             * Update progress indicator with new text and percentage
+             * 
+             * @param {string} text - Text to display
+             * @param {number} percent - Progress percentage (0-100)
+             */
             function updateProgress(text, percent) {
                 progressText.textContent = text;
                 progressPercentage.textContent = percent + '%';
                 progressBarInner.style.width = percent + '%';
             }
             
+            /**
+             * Hide progress indicator
+             */
             function hideProgress() {
                 progressContainer.classList.add('hidden');
             }
             
+            /**
+             * Show status message (success or error)
+             * 
+             * @param {string} type - Type of status ('success' or 'error')
+             * @param {string} title - Title for the status message
+             * @param {string} message - Details of the status
+             * @param {Function} callback - Optional callback for action button (used for download)
+             */
             function showStatus(type, title, message, callback) {
                 statusContainer.innerHTML = '';
                 statusContainer.classList.remove('hidden');
@@ -1716,7 +1892,7 @@
                 `;
                 
                 if (type === 'success') {
-                    // Add the import tip notice
+                    // Add the import tip notice for successful conversions
                     const importTip = document.createElement('div');
                     importTip.className = 'import-tip';
                     importTip.innerHTML = `
@@ -1729,6 +1905,7 @@
                     `;
                     statusDiv.appendChild(importTip);
                     
+                    // Add download button if callback provided
                     if (callback) {
                         const downloadBtn = document.createElement('button');
                         downloadBtn.className = 'download-btn';
