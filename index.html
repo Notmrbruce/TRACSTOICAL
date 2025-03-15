@@ -1428,7 +1428,7 @@
                         // Only include work shifts and STUD days
                         for (let i = 1; i < allCalendarData.length; i++) {
                             const row = allCalendarData[i];
-                            if (row[0] !== "RD" && row[0] !== "A/L") {
+                            if (row[0] !== "Rest Day" && row[0] !== "ANNUAL LEAVE") {
                                 filteredData.push(row);
                             }
                         }
@@ -1438,7 +1438,7 @@
                         // Only include rest days and annual leave
                         for (let i = 1; i < allCalendarData.length; i++) {
                             const row = allCalendarData[i];
-                            if (row[0] === "RD" || row[0] === "A/L") {
+                            if (row[0] === "Rest Day" || row[0] === "ANNUAL LEAVE") {
                                 filteredData.push(row);
                             }
                         }
