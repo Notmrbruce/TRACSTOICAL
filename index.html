@@ -1091,7 +1091,7 @@
                                 updateProgress('Converting schedule format...', 60);
                                 const rawData = results.data;
                                 
-                                // Step 1: Find the header row containing 'Date', 'On', 'Off'
+                                // Find the header row containing 'Date', 'On', 'Off'
                                 let headerRow = -1;
                                 for (let i = 0; i < rawData.length; i++) {
                                     if (rawData[i].includes("Date") && 
@@ -1110,34 +1110,41 @@
                                 console.log("Found header row at index:", headerRow);
                                 console.log("Header row content:", rawData[headerRow]);
                                 
-                                // Step 2: Extract data rows (everything after the header)
+                                // Extract data rows (everything after the header)
                                 const dataRows = rawData.slice(headerRow + 1);
+                                console.log(`Found ${dataRows.length} data rows after header`);
                                 
-                                // Step 3: Create array for iCal compatible data
+                                // Create array for iCal compatible data
                                 const icalData = [];
                                 
                                 // Add standard iCal header row
                                 icalData.push(["Subject", "Start Date", "Start Time", "End Date", "End Time", "All Day", "Description", "Location"]);
                                 
-                                // Step 4: First pass - identify overnight shifts to handle their end times
-                                // This helps properly set the start time of rest days following overnight shifts
+                                // First pass - identify overnight shifts
                                 const overnightShiftEndTimes = {};
                                 
-                                console.log("First pass - identifying overnight shifts:");
+                                console.log("Sample of data rows (first 3):");
+                                for (let i = 0; i < Math.min(3, dataRows.length); i++) {
+                                    console.log(`Row ${i}:`, dataRows[i]);
+                                }
                                 
+                                // First pass: identify overnight shifts
                                 dataRows.forEach(row => {
-                                    // Skip rows without valid date format
+                                    // Skip invalid rows
                                     if (!row[0] || !row[0].includes('/')) return;
                                     
                                     // Extract date information
                                     const dateText = row[0];
+                                    // Match pattern like "27/03 Th27/03/2025 Th"
                                     const dateMatch = dateText.match(/(\d{2}\/\d{2}).*?(\d{2}\/\d{2}\/\d{4})/);
                                     if (!dateMatch) return;
                                     
-                                    const fullDate = dateMatch[2];
+                                    const fullDate = dateMatch[2]; // Gets "DD/MM/YYYY"
                                     const [day, month, year] = fullDate.split('/');
-                                    // Convert to MM/DD/YYYY format for consistency
-                                    const formattedDate = `${month}/${day}/${year}`;
+                                    
+                                    // Convert to MM/DD/YYYY format with zero-padding
+                                    const formattedDate = `${month.padStart(2, '0')}/${day.padStart(2, '0')}/${year}`;
+                                    const originalDate = fullDate;
                                     
                                     const startTime = row[1];
                                     const endTime = row[2];
@@ -1145,27 +1152,34 @@
                                     // Only process actual shifts (not RD, AL, STUD)
                                     if (startTime && endTime && startTime !== "RD" && startTime !== "AL" && startTime !== "STUD") {
                                         try {
-                                            // Convert time strings to numeric values
-                                            const [startHour, startMinute] = startTime.split(':').map(Number);
-                                            const [endHour, endMinute] = endTime.split(':').map(Number);
+                                            // Validate time format
+                                            const startTimeParts = startTime.split(':');
+                                            const endTimeParts = endTime.split(':');
+                                            
+                                            if (startTimeParts.length !== 2 || endTimeParts.length !== 2) {
+                                                console.log(`Invalid time format for ${originalDate}: ${startTime} - ${endTime}`);
+                                                return;
+                                            }
+                                            
+                                            const [startHour, startMinute] = startTimeParts.map(Number);
+                                            const [endHour, endMinute] = endTimeParts.map(Number);
                                             
                                             const startTimeMinutes = startHour * 60 + startMinute;
                                             const endTimeMinutes = endHour * 60 + endMinute;
                                             
                                             // If end time is earlier than start time, it's an overnight shift
-                                            // e.g., 22:00 - 06:00 means it ends the next day
                                             if (endTimeMinutes < startTimeMinutes) {
                                                 // Calculate the next day's date
                                                 const dateParts = formattedDate.split('/');
-                                                const nextDateObj = new Date(dateParts[2], dateParts[0] - 1, dateParts[1]);
+                                                const nextDateObj = new Date(dateParts[2], parseInt(dateParts[0]) - 1, parseInt(dateParts[1]));
                                                 nextDateObj.setDate(nextDateObj.getDate() + 1);
                                                 
-                                                // Format as MM/DD/YYYY
-                                                const nextDate = `${nextDateObj.getMonth() + 1}/${nextDateObj.getDate()}/${nextDateObj.getFullYear()}`;
+                                                // Format as MM/DD/YYYY with zero-padding
+                                                const nextDate = `${String(nextDateObj.getMonth() + 1).padStart(2, '0')}/${String(nextDateObj.getDate()).padStart(2, '0')}/${nextDateObj.getFullYear()}`;
                                                 
                                                 // Store the end time for the next day
                                                 overnightShiftEndTimes[nextDate] = endTime;
-                                                console.log(`- Overnight shift on ${formattedDate} ends at ${endTime} on ${nextDate}`);
+                                                console.log(`Overnight shift on ${originalDate} (${formattedDate}) ends at ${endTime} on ${nextDate}`);
                                             }
                                         } catch (error) {
                                             console.error('Error processing time:', error, row);
@@ -1173,12 +1187,12 @@
                                     }
                                 });
                                 
-                                console.log("All overnight shift end times:", overnightShiftEndTimes);
+                                console.log("All overnight shift end times:");
+                                console.log(JSON.stringify(overnightShiftEndTimes, null, 2));
                                 
-                                // Step 5: Second pass - process each row into calendar events
-                                console.log("Second pass - processing each day:");
+                                // Second pass: process each row into calendar events
                                 dataRows.forEach(row => {
-                                    // Skip rows without valid date format
+                                    // Skip invalid rows
                                     if (!row[0] || !row[0].includes('/')) return;
                                     
                                     // Extract date information
@@ -1188,31 +1202,31 @@
                                     
                                     const fullDate = dateMatch[2];
                                     const [day, month, year] = fullDate.split('/');
-                                    // Convert to MM/DD/YYYY format for consistency
-                                    const formattedDate = `${month}/${day}/${year}`;
+                                    
+                                    // Convert to MM/DD/YYYY format with zero-padding
+                                    const formattedDate = `${month.padStart(2, '0')}/${day.padStart(2, '0')}/${year}`;
+                                    const originalDate = fullDate;
                                     
                                     const startTime = row[1];
                                     const endTime = row[2];
                                     const shiftCode = row[3] || "";
                                     
-                                    // Check if this date has a previous overnight shift ending on it
+                                    // Check for previous overnight shift
                                     const previousShiftEndTime = overnightShiftEndTimes[formattedDate];
                                     
-                                    // Log what we're processing
+                                    console.log(`Processing ${originalDate} (${formattedDate}): ${startTime || 'RD'}`);
                                     if (previousShiftEndTime) {
-                                        console.log(`- Processing ${formattedDate}: ${startTime || 'RD'} (follows overnight shift ending at ${previousShiftEndTime})`);
-                                    } else {
-                                        console.log(`- Processing ${formattedDate}: ${startTime || 'RD'}`);
+                                        console.log(`Found previous shift end time: ${previousShiftEndTime} for ${formattedDate}`);
                                     }
                                     
-                                    // ---- Handle Rest Days ----
+                                    // Handle Rest Days
                                     if (!startTime || startTime === "RD") {
                                         let restDayStartTime = "";
                                         let restDayEndTime = "";
                                         let allDay = "TRUE";
                                         
                                         // If there's an overnight shift ending on this day,
-                                        // make the rest day start just after the shift ends
+                                        // adjust rest day to start after shift ends
                                         if (previousShiftEndTime) {
                                             const [hours, minutes] = previousShiftEndTime.split(':').map(Number);
                                             let newMinutes = minutes + 1;
@@ -1228,6 +1242,10 @@
                                             restDayStartTime = `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
                                             restDayEndTime = "23:59";
                                             allDay = "FALSE"; // No longer an all-day event
+                                            
+                                            console.log(`ADJUSTED RD time: starts at ${restDayStartTime} (after previous shift ended at ${previousShiftEndTime})`);
+                                        } else {
+                                            console.log(`RD remains all-day event (no previous overnight shift)`);
                                         }
                                         
                                         // Create rest day event
@@ -1242,14 +1260,14 @@
                                             "" // Location
                                         ]);
                                     }
-                                    // ---- Handle Annual Leave ----
+                                    // Handle Annual Leave
                                     else if (startTime === "AL" || startTime === "A/L") {
                                         let alStartTime = "";
                                         let alEndTime = "";
                                         let allDay = "TRUE";
                                         
                                         // If there's an overnight shift ending on this day,
-                                        // make the leave day start just after the shift ends
+                                        // adjust leave to start after shift ends
                                         if (previousShiftEndTime) {
                                             const [hours, minutes] = previousShiftEndTime.split(':').map(Number);
                                             let newMinutes = minutes + 1;
@@ -1266,9 +1284,9 @@
                                             alEndTime = "23:59";
                                             allDay = "FALSE"; // No longer an all-day event
                                             
-                                            console.log(`  * Adjusted A/L time: starts at ${alStartTime} (after previous shift ended at ${previousShiftEndTime})`);
+                                            console.log(`ADJUSTED A/L time: starts at ${alStartTime} (after previous shift ended at ${previousShiftEndTime})`);
                                         } else {
-                                            console.log(`  * A/L is all-day event (no previous overnight shift)`);
+                                            console.log(`A/L remains all-day event (no previous overnight shift)`);
                                         }
                                         
                                         // Create annual leave event
@@ -1283,13 +1301,13 @@
                                             "" // Location
                                         ]);
                                     }
-                                    // ---- Handle Study Days ----
+                                    // Handle Study Days
                                     else if (startTime === "STUD") {
                                         // Default start time for study days is 9 AM
                                         let studStartTime = "09:00";
                                         
-                                        // If there's an overnight shift ending on this day,
-                                        // make the study day start just after the shift ends (if later than 9 AM)
+                                        // If there's an overnight shift ending on this day after 9 AM,
+                                        // adjust study day to start after shift ends
                                         if (previousShiftEndTime) {
                                             const [hours, minutes] = previousShiftEndTime.split(':').map(Number);
                                             let newMinutes = minutes + 1;
@@ -1301,16 +1319,16 @@
                                                 newMinutes = newMinutes % 60;
                                             }
                                             
-                                            // Only use the end time of the previous shift if it's after 9 AM
+                                            // Only adjust if shift ends after 9 AM
                                             const calculatedStartMinutes = newHours * 60 + newMinutes;
                                             if (calculatedStartMinutes > 9 * 60) {
                                                 studStartTime = `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
-                                                console.log(`  * Adjusted STUD day time: starts at ${studStartTime} (after previous shift ended at ${previousShiftEndTime})`);
+                                                console.log(`ADJUSTED STUD day time: starts at ${studStartTime} (after previous shift ended at ${previousShiftEndTime})`);
                                             } else {
-                                                console.log(`  * STUD day starts at default 09:00 (previous shift ended at ${previousShiftEndTime} but is earlier than 9 AM)`);
+                                                console.log(`STUD day starts at default 09:00 (previous shift ended at ${previousShiftEndTime} but is earlier than 9 AM)`);
                                             }
                                         } else {
-                                            console.log(`  * STUD day starts at default 09:00 (no previous overnight shift)`);
+                                            console.log(`STUD day starts at default 09:00 (no previous overnight shift)`);
                                         }
                                         
                                         // Create study day event (9 AM - 5 PM by default)
@@ -1325,30 +1343,43 @@
                                             "" // Location
                                         ]);
                                     }
-                                    // ---- Handle Regular Work Shifts ----
+                                    // Handle Regular Work Shifts
                                     else {
                                         // Start with end date same as start date
                                         let endDate = formattedDate;
                                         
                                         // Check if this is an overnight shift
                                         if (startTime && endTime) {
-                                            const [startHour, startMinute] = startTime.split(':').map(Number);
-                                            const [endHour, endMinute] = endTime.split(':').map(Number);
-                                            
-                                            const startTimeMinutes = startHour * 60 + startMinute;
-                                            const endTimeMinutes = endHour * 60 + endMinute;
-                                            
-                                            // If end time is earlier than start time, it spans to next day
-                                            if (endTimeMinutes < startTimeMinutes) {
-                                                const dateParts = formattedDate.split('/');
-                                                const startDateObj = new Date(dateParts[2], dateParts[0] - 1, dateParts[1]);
+                                            try {
+                                                const startTimeParts = startTime.split(':');
+                                                const endTimeParts = endTime.split(':');
                                                 
-                                                // Calculate next day's date
-                                                const endDateObj = new Date(startDateObj);
-                                                endDateObj.setDate(endDateObj.getDate() + 1);
-                                                
-                                                // Format as MM/DD/YYYY
-                                                endDate = `${endDateObj.getMonth() + 1}/${endDateObj.getDate()}/${endDateObj.getFullYear()}`;
+                                                if (startTimeParts.length === 2 && endTimeParts.length === 2) {
+                                                    const [startHour, startMinute] = startTimeParts.map(Number);
+                                                    const [endHour, endMinute] = endTimeParts.map(Number);
+                                                    
+                                                    const startTimeMinutes = startHour * 60 + startMinute;
+                                                    const endTimeMinutes = endHour * 60 + endMinute;
+                                                    
+                                                    // If end time is earlier than start time, it spans to next day
+                                                    if (endTimeMinutes < startTimeMinutes) {
+                                                        const dateParts = formattedDate.split('/');
+                                                        const startDateObj = new Date(dateParts[2], parseInt(dateParts[0]) - 1, parseInt(dateParts[1]));
+                                                        
+                                                        // Calculate next day's date
+                                                        const endDateObj = new Date(startDateObj);
+                                                        endDateObj.setDate(endDateObj.getDate() + 1);
+                                                        
+                                                        // Format as MM/DD/YYYY
+                                                        endDate = `${String(endDateObj.getMonth() + 1).padStart(2, '0')}/${String(endDateObj.getDate()).padStart(2, '0')}/${endDateObj.getFullYear()}`;
+                                                        
+                                                        console.log(`Overnight work shift: ${formattedDate} ${startTime} to ${endDate} ${endTime}`);
+                                                    } else {
+                                                        console.log(`Regular work shift: ${formattedDate} ${startTime} to ${endTime}`);
+                                                    }
+                                                }
+                                            } catch (error) {
+                                                console.error(`Error processing shift times for ${originalDate}:`, error);
                                             }
                                         }
                                         
@@ -1366,7 +1397,7 @@
                                     }
                                 });
                                 
-                                // Step 6: Store the complete data and show options
+                                // Store the complete data
                                 allCalendarData = icalData;
                                 
                                 // Apply default filter (all events)
@@ -1561,12 +1592,13 @@
                                 
                                 const tag = document.createElement('span');
                                 tag.className = `tag tag-${eventType}`;
+                                
                                 switch(eventType) {
                                     case 'rest':
-                                        tag.textContent = 'REST';
+                                        tag.textContent = 'RD';
                                         break;
                                     case 'leave':
-                                        tag.textContent = 'LEAVE';
+                                        tag.textContent = 'A/L';
                                         break;
                                     case 'study':
                                         tag.textContent = 'STUD';
@@ -1575,6 +1607,7 @@
                                         tag.textContent = 'WORK';
                                         break;
                                 }
+                                
                                 td.appendChild(tag);
                             } else {
                                 td.textContent = filteredData[i][colIndex];
@@ -1614,15 +1647,15 @@
             // ICAL GENERATION
             // =============================================================
             
-                // Generate iCal file when user clicks the generate button
-                generateBtn.addEventListener('click', function() {
-                    if (!filteredData) {
-                        showStatus('error', 'No Data Available', 'Please upload a file first.');
-                        return;
-                    }
-                    
-                    console.log("Generating iCal file with data:", filteredData.length - 1, "events");
-                    showProgress('Generating iCal file...', 0);
+            // Generate iCal file when user clicks the generate button
+            generateBtn.addEventListener('click', function() {
+                if (!filteredData) {
+                    showStatus('error', 'No Data Available', 'Please upload a file first.');
+                    return;
+                }
+                
+                console.log("Generating iCal file with data:", filteredData.length - 1, "events");
+                showProgress('Generating iCal file...', 0);
                 
                 // Add slight delay for better UX
                 setTimeout(function() {
